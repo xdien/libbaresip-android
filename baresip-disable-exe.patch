@@ -1,0 +1,26 @@
+--- baresip/CMakeLists.txt      2025-05-29 17:14:59
++++ /Users/dienbui/Downloads/CMakeLists.txt     2025-05-29 17:05:18
+@@ -348,7 +348,7 @@
+ #
+ # Install section
+ #
+-if(BUILD_BARESIP_EXE)
++
+ install(TARGETS baresip_exe baresip
+   RUNTIME
+     DESTINATION ${CMAKE_INSTALL_BINDIR}
+@@ -364,7 +364,6 @@
+     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+     COMPONENT Development
+ )
+-endif()
+ 
+ if(NOT STATIC)
+   foreach(mod IN LISTS MODULES_DETECTED)
+@@ -407,4 +406,4 @@
+ 
+ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+   add_subdirectory(packaging)
+-endif()
+\ No newline at end of file
++endif()
