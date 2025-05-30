@@ -160,6 +160,7 @@ vpx:
 		--disable-avx \
 		--disable-avx2 \
 		--disable-avx512 \
+		--enable-pic \
 		--prefix="$(OUTPUT_DIR)/$(ANDROID_TARGET_ARCH)"
 	cd libvpx && \
 	make -j$(CPU_COUNT)
