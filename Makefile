@@ -174,13 +174,15 @@ libre.a: Makefile
 		-DCMAKE_FIND_ROOT_PATH="$(OUTPUT_DIR)/$(ANDROID_TARGET_ARCH)/lib/cmake" \
 		-DCMAKE_INSTALL_PREFIX=$(OUTPUT_DIR)/$(ANDROID_TARGET_ARCH) \
 		-DOPENSSL_INCLUDE_DIR=$(OUTPUT_DIR)/$(ANDROID_TARGET_ARCH)/include \
-		-DLIBRE_BUILD_SHARED=ON \
+		-DLIBRE_BUILD_STATIC=ON \
+		-DLIBRE_BUILD_SHARED=OFF \
 		-DUSE_OPENSSL=ON \
 		-DOPENSSL_USE_STATIC_LIBS=ON \
 		-DOPENSSL_CRYPTO_LIBRARY=$(OUTPUT_DIR)/$(ANDROID_TARGET_ARCH)/lib/libcrypto.a \
 		-DOPENSSL_SSL_LIBRARY=$(OUTPUT_DIR)/$(ANDROID_TARGET_ARCH)/lib/libssl.a \
 		 && \
-	cmake --build . --target re -j$(CPU_COUNT)
+	cmake --build . --target re -j$(CPU_COUNT) && \
+	cmake --install .
 
 libbaresip: Makefile
 	cd baresip && \
