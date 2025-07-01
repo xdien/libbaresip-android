@@ -14,7 +14,7 @@ API_LEVEL := 28
 ANDROID_TARGET_ARCH := arm64-v8a
 
 # Directory where libraries and include files are installed
-OUTPUT_DIR := /Users/dienbui/workspace/baresip-studio/libbaresip-android/distribution.video
+OUTPUT_DIR := $(PWD)/distribution.video
 
 # -------------------- GENERATED VALUES --------------------
 # if macos, use sysctl -n hw.logicalcpu else use nproc
@@ -27,7 +27,7 @@ ifeq ($(ANDROID_TARGET_ARCH), armeabi-v7a)
 	ARCH         := arm
 	OPENSSL_ARCH := android-arm
 	MARCH        := armv7-a
-	VPX_ARCH     := armv7-android-gcc
+	VPX_ARCH     := armv7-linux-gcc
 else
 ifeq ($(ANDROID_TARGET_ARCH), arm64-v8a)
 	TARGET       := aarch64-linux-android
@@ -86,6 +86,13 @@ STRIP	:= llvm-strip
 # NOTE: use -isystem to avoid warnings in system header files
 COMMON_CFLAGS := -isystem $(SYSROOT)/usr/include -fPIE -fPIC -march=$(MARCH)
 
+ifeq ($(DEBUG),1)
+	COMMON_CFLAGS += -g -O0
+	CMAKE_BUILD_TYPE := Debug
+else
+	CMAKE_BUILD_TYPE := Release
+endif
+
 LFLAGS := -fPIE -pie
 
 COMMON_FLAGS := \
@@ -122,9 +129,9 @@ CMAKE_ANDROID_FLAGS := \
 	-DCMAKE_C_COMPILER=$(CC) \
 	-DCMAKE_CXX_COMPILER=$(CXX) \
 	-DCMAKE_POSITION_INDEPENDENT_CODE=ON \
-	-DCMAKE_BUILD_TYPE=Release
+	-DCMAKE_BUILD_TYPE=$(CMAKE_BUILD_TYPE)
 
-MODULES := "augain;aaudio;dtls_srtp;g711;stun;turn;ice;presence;mwi;account;natpmp;srtp;uuid;sndfile;debug_cmd;vp8;vp9;snapshot"
+MODULES := "android_video;android_vsrc;augain;aaudio;dtls_srtp;g711;stun;serreg;turn;ice;presence;mwi;account;natpmp;srtp;uuid;sndfile;debug_cmd;vp8;vp9;snapshot"
 
 default: all
 .PHONY: openssl
@@ -139,33 +146,33 @@ openssl:
 
 .PHONY: vpx
 vpx:
+	-cd libvpx && make clean
 	cd libvpx && \
-	CC=$(CLANG_TARGET)$(API_LEVEL)-clang \
-	CXX=$(CLANG_TARGET)$(API_LEVEL)-clang++ \
-	./configure --target=$(VPX_ARCH) \
-		--disable-examples \
-		--disable-docs \
-		--enable-realtime-only \
-		--disable-install-bins \
-		--disable-tools \
-		--enable-webm-io \
-		--enable-libyuv \
-		--disable-unit-tests \
-		--enable-runtime-cpu-detect \
-		--disable-mmx \
-		--disable-sse2 \
-		--disable-sse3 \
-		--disable-ssse3 \
-		--disable-sse4_1 \
-		--disable-avx \
-		--disable-avx2 \
-		--disable-avx512 \
-		--enable-pic \
-		--prefix="$(OUTPUT_DIR)/$(ANDROID_TARGET_ARCH)"
-	cd libvpx && \
-	make -j$(CPU_COUNT)
-	cd libvpx && \
-	make install
+		CC=$(CLANG_TARGET)$(API_LEVEL)-clang \
+		CXX=$(CLANG_TARGET)$(API_LEVEL)-clang++ \
+		./configure --target=$(VPX_ARCH) \
+			--disable-examples \
+			--disable-docs \
+			--enable-realtime-only \
+			--disable-install-bins \
+			--disable-tools \
+			--enable-webm-io \
+			--enable-libyuv \
+			--disable-unit-tests \
+			--enable-runtime-cpu-detect \
+			--disable-mmx \
+			--disable-sse2 \
+			--disable-sse3 \
+			--disable-ssse3 \
+			--disable-sse4_1 \
+			--disable-avx \
+			--disable-avx2 \
+			--disable-avx512 \
+			--enable-pic \
+			--enable-vp8 \
+			--prefix="$(OUTPUT_DIR)/$(ANDROID_TARGET_ARCH)"
+	cd libvpx && make -j$(CPU_COUNT)
+	cd libvpx && make install
 
 libre.a: Makefile
 	cd re && \
@@ -178,7 +185,7 @@ libre.a: Makefile
 		-DLIBRE_BUILD_STATIC=ON \
 		-DLIBRE_BUILD_SHARED=OFF \
 		-DUSE_OPENSSL=ON \
-		-DOPENSSL_USE_STATIC_LIBS=ON \
+		-DUSE_OPENSSL_STATIC_LIBS=ON \
 		-DOPENSSL_CRYPTO_LIBRARY=$(OUTPUT_DIR)/$(ANDROID_TARGET_ARCH)/lib/libcrypto.a \
 		-DOPENSSL_SSL_LIBRARY=$(OUTPUT_DIR)/$(ANDROID_TARGET_ARCH)/lib/libssl.a \
 		 && \
@@ -208,11 +215,12 @@ libbaresip: Makefile
 		-DMODULES=$(MODULES) \
 		-DBUILD_BARESIP_EXE=OFF && \
 	cmake --build . --target baresip -j$(CPU_COUNT) && \
-	cmake --install .
+	cmake --install . && \
+	cp ../modules/android_video/android_viddisp.h $(OUTPUT_DIR)/$(ANDROID_TARGET_ARCH)/include/android_viddisp.h && \
+	cp ../modules/android_vsrc/android_vinsrc.h $(OUTPUT_DIR)/$(ANDROID_TARGET_ARCH)/include/android_vinsrc.h
 
 all:
 	make libbaresip ANDROID_TARGET_ARCH=arm64-v8a
-	make libbaresip ANDROID_TARGET_ARCH=armeabi-v7a
 
 debug:	all
 	make libbaresip ANDROID_TARGET_ARCH=x86_64
@@ -222,28 +230,29 @@ download-sources:
 	rm -fr abseil-cpp amr baresip bcg729 codec2 g7221 openssl opus* \
 		re sndfile spandsp tiff vo-amrwbenc webrtc zrtpcpp \
 		png ffmpeg-android-maker libvpx
-	git clone https://github.com/abseil/abseil-cpp.git -b lts_2024_01_16 --single-branch
-	git clone https://git.code.sf.net/p/opencore-amr/code -b v0.1.6 --single-branch amr
+	# git clone https://github.com/abseil/abseil-cpp.git -b lts_2024_01_16 --single-branch
+	# git clone https://git.code.sf.net/p/opencore-amr/code -b v0.1.6 --single-branch amr
 	git clone https://github.com/baresip/baresip.git
-	git clone https://github.com/BelledonneCommunications/bcg729.git -b release/1.1.1 --single-branch
-	git clone https://github.com/drowe67/codec2.git -b 1.2.0 --single-branch
-	git clone https://github.com/juha-h/libg7221.git -b master --single-branch g7221
+	# git clone https://github.com/BelledonneCommunications/bcg729.git -b release/1.1.1 --single-branch
+	# git clone https://github.com/drowe67/codec2.git -b 1.2.0 --single-branch
+	# git clone https://github.com/juha-h/libg7221.git -b master --single-branch g7221
 	git clone https://github.com/openssl/openssl.git -b openssl-3.5 --single-branch openssl
-	git clone https://github.com/xiph/opus.git -b v1.4 --single-branch
+	# git clone https://github.com/xiph/opus.git -b v1.4 --single-branch
 	git clone https://github.com/baresip/re.git
-	git clone https://github.com/juha-h/libsndfile.git -b master --single-branch sndfile
-	git clone https://github.com/juha-h/spandsp.git -b 1.0 --single-branch spandsp
-	git clone https://gitlab.com/libtiff/libtiff.git -b v4.7.0 --single-branch tiff
-	git clone https://github.com/juha-h/libwebrtc.git -b mobile --single-branch webrtc
-	git clone https://git.code.sf.net/p/opencore-amr/vo-amrwbenc --single-branch vo-amrwbenc
-	cp -r abseil-cpp/absl webrtc/jni/src/webrtc
-	git clone https://github.com/juha-h/ZRTPCPP.git -b master --single-branch zrtpcpp
-	git clone https://github.com/pnggroup/libpng.git -b v1.6.48 --single-branch png
-	git clone https://github.com/Javernaut/ffmpeg-android-maker.git -b master --single-branch
+	# git clone https://github.com/juha-h/libsndfile.git -b master --single-branch sndfile
+	# git clone https://github.com/juha-h/spandsp.git -b 1.0 --single-branch spandsp
+	# git clone https://gitlab.com/libtiff/libtiff.git -b v4.7.0 --single-branch tiff
+	# git clone https://github.com/juha-h/libwebrtc.git -b mobile --single-branch webrtc
+	# git clone https://git.code.sf.net/p/opencore-amr/vo-amrwbenc --single-branch vo-amrwbenc
+	# cp -r abseil-cpp/absl webrtc/jni/src/webrtc
+	# git clone https://github.com/juha-h/ZRTPCPP.git -b master --single-branch zrtpcpp
+	# git clone https://github.com/pnggroup/libpng.git -b v1.6.48 --single-branch png
+	# git clone https://github.com/Javernaut/ffmpeg-android-maker.git -b master --single-branch
 	git clone https://chromium.googlesource.com/webm/libvpx.git -b v1.15.1 --single-branch libvpx
 	patch -d re -p1 < re-patch
-	patch -d tiff -p1 < tiff-patch
-	patch -d ffmpeg-android-maker -p1 < ffmpeg-android-maker.patch
+	# patch -d tiff -p1 < tiff-patch
+	# patch -d ffmpeg-android-maker -p1 < ffmpeg-android-maker.patch
+	patch -R -d baresip -p1 < baresip-disable-exe.patch
 
 clean:
 	cd libvpx && make distclean && make clean
